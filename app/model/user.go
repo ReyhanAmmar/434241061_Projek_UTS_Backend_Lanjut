@@ -18,6 +18,10 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type AssignRoleRequest struct {
+	Role string `json:"role"`
+}
+
 type WebResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
