@@ -15,6 +15,8 @@ import (
 type Dependencies struct {
 	Pool        *pgxpool.Pool
 	JWT         *helper.JWTManager
+	Permissions *helper.PermissionSet
+	UserService *service.UserService
 	AuthService *service.AuthService
 }
 
@@ -38,6 +40,29 @@ func Register(app *fiber.App, deps Dependencies) {
 		middleware.RequireAuth(deps.JWT),
 		deps.AuthService.Me,
 	)
+
+	users := api.Group(
+		"/users",
+		middleware.RequireAuth(deps.JWT),
+		middleware.RequireJSON,
+	)
+
+	perms := deps.Permissions
+
+	users.Get(
+		"/",
+		middleware.RequirePermission(perms, "user:list"),
+		deps.UserService.List,
+	)
+
+	users.Patch(
+		"/:id/role",
+		middleware.RequirePermission(perms, "role:assign"),
+		deps.UserService.AssignRole,
+	)
+
+	// Kepemilikan profil diperiksa di UserService.Get.
+	users.Get("/:id", deps.UserService.Get)
 }
 
 func healthCheck(pool *pgxpool.Pool) fiber.Handler {
