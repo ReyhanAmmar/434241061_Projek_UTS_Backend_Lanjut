@@ -60,6 +60,7 @@ func main() {
 		userRepository := repository.NewUserRepository(pool)
 	tokenRepository := repository.NewTokenRepository(pool)
 	roleRepository := repository.NewRoleRepository(pool)
+	categoryRepository := repository.NewCategoryRepository(pool)
 
 	permissionCtx, cancelPermissions := context.WithTimeout(
 		context.Background(), 5*time.Second,
@@ -101,6 +102,11 @@ func main() {
 		permissions,
 	)
 
+	categoryService := service.NewCategoryService(
+		categoryRepository,
+		permissions,
+	)
+
 	authService := service.NewAuthService(
 		userRepository,
 		tokenRepository,
@@ -115,6 +121,7 @@ func main() {
 		Permissions: permissions,
 		UserService: userService,
 		AuthService: authService,
+		CategoryService: categoryService,
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")

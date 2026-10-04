@@ -13,11 +13,12 @@ import (
 )
 
 type Dependencies struct {
-	Pool        *pgxpool.Pool
-	JWT         *helper.JWTManager
-	Permissions *helper.PermissionSet
-	UserService *service.UserService
-	AuthService *service.AuthService
+	Pool            *pgxpool.Pool
+	JWT             *helper.JWTManager
+	Permissions     *helper.PermissionSet
+	UserService     *service.UserService
+	AuthService     *service.AuthService
+	CategoryService *service.CategoryService
 }
 
 func Register(app *fiber.App, deps Dependencies) {
@@ -62,6 +63,34 @@ func Register(app *fiber.App, deps Dependencies) {
 	)
 
 	users.Get("/:id", deps.UserService.Get)
+
+		categories := api.Group(
+		"/categories",
+		middleware.RequireAuth(deps.JWT),
+		middleware.RequireJSON,
+	)
+
+	categories.Get(
+		"/",
+		middleware.RequirePermission(perms, "category:list"),
+		deps.CategoryService.List,
+	)
+
+	categories.Post(
+		"/",
+		middleware.RequirePermission(perms, "category:create"),
+		deps.CategoryService.Create,
+	)
+
+	categories.Delete(
+		"/:id",
+		middleware.RequirePermission(perms, "category:delete"),
+		deps.CategoryService.Delete,
+	)
+
+	categories.Get("/:id", deps.CategoryService.Get)
+	categories.Put("/:id", deps.CategoryService.Replace)
+	categories.Patch("/:id", deps.CategoryService.Patch)
 }
 
 func healthCheck(pool *pgxpool.Pool) fiber.Handler {
