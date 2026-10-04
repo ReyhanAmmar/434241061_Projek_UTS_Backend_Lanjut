@@ -60,14 +60,24 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 			}
 		}
 
-		logger.Info("http_request",
+		attrs := []any{
 			slog.String("request_id", helper.RequestID(c)),
 			slog.String("method", c.Method()),
 			slog.String("path", c.Path()),
 			slog.Int("status", status),
 			slog.Duration("duration", time.Since(start)),
 			slog.String("ip", c.IP()),
-		)
+		}
+
+		if current, ok := helper.CurrentUser(c); ok {
+			attrs = append(
+				attrs,
+				slog.Int("user_id", current.UserID),
+				slog.String("role", current.Role),
+			)
+		}
+
+		logger.Info("http_request", attrs...)
 
 		return err
 	}
