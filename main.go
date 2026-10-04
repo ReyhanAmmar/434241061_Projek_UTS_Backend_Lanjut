@@ -57,19 +57,63 @@ func main() {
 		time.Duration(accessMinutes)*time.Minute,
 	)
 
-	userRepository := repository.NewUserRepository(pool)
+		userRepository := repository.NewUserRepository(pool)
 	tokenRepository := repository.NewTokenRepository(pool)
+	roleRepository := repository.NewRoleRepository(pool)
+
+	permissionCtx, cancelPermissions := context.WithTimeout(
+		context.Background(), 5*time.Second,
+	)
+
+	rawPermissions, err := roleRepository.LoadPermissions(permissionCtx)
+	cancelPermissions()
+
+	if err != nil {
+		logger.Error(
+			"gagal memuat permission",
+			slog.String("error", err.Error()),
+		)
+		pool.Close()
+		os.Exit(1)
+	}
+
+	permissions := helper.NewPermissionSet(rawPermissions)
+
+	knownRoles := permissions.KnownRoles()
+	if len(knownRoles) != 2 ||
+		!permissions.IsKnownRole("admin") ||
+		!permissions.IsKnownRole("user") {
+		logger.Error(
+			"konfigurasi role harus terdiri dari admin dan user",
+			slog.Any("roles", knownRoles),
+		)
+		pool.Close()
+		os.Exit(1)
+	}
+
+	logger.Info(
+		"permission dimuat",
+		slog.Any("roles", knownRoles),
+	)
+
+	userService := service.NewUserService(
+		userRepository,
+		permissions,
+	)
 
 	authService := service.NewAuthService(
 		userRepository,
 		tokenRepository,
 		jwtManager,
+		permissions,
 		time.Duration(refreshDays)*24*time.Hour,
 	)
 
 	app := config.NewApp(logger, route.Dependencies{
 		Pool:        pool,
 		JWT:         jwtManager,
+		Permissions: permissions,
+		UserService: userService,
 		AuthService: authService,
 	})
 
