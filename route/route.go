@@ -61,7 +61,6 @@ func Register(app *fiber.App, deps Dependencies) {
 		deps.UserService.AssignRole,
 	)
 
-	// Kepemilikan profil diperiksa di UserService.Get.
 	users.Get("/:id", deps.UserService.Get)
 }
 
