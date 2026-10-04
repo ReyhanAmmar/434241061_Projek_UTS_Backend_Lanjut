@@ -32,22 +32,25 @@ func NewUserRepository(pool *pgxpool.Pool) UserRepository {
 }
 
 func (r *userPostgresRepository) FindByID(
-	ctx context.Context, id int,
+	ctx context.Context,
+	id int,
 ) (model.User, error) {
 	var user model.User
 
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, name, role, is_active, created_at
+		`SELECT id, name, email, role, is_active,
+		        created_at, updated_at
 		 FROM users
 		 WHERE id = $1`,
 		id,
 	).Scan(
 		&user.ID,
-		&user.Email,
 		&user.Name,
+		&user.Email,
 		&user.Role,
 		&user.IsActive,
 		&user.CreatedAt,
+		&user.UpdatedAt,
 	)
 
 	if err != nil {
@@ -61,23 +64,26 @@ func (r *userPostgresRepository) FindByID(
 }
 
 func (r *userPostgresRepository) FindByEmail(
-	ctx context.Context, email string,
+	ctx context.Context,
+	email string,
 ) (model.User, error) {
 	var user model.User
 
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, name, password, role, is_active, created_at
+		`SELECT id, name, email, password, role, is_active,
+		        created_at, updated_at
 		 FROM users
 		 WHERE LOWER(email) = LOWER($1)`,
 		email,
 	).Scan(
 		&user.ID,
-		&user.Email,
 		&user.Name,
+		&user.Email,
 		&user.Password,
 		&user.Role,
 		&user.IsActive,
 		&user.CreatedAt,
+		&user.UpdatedAt,
 	)
 
 	if err != nil {
@@ -93,22 +99,27 @@ func (r *userPostgresRepository) FindByEmail(
 }
 
 func (r *userPostgresRepository) Create(
-	ctx context.Context, user model.User,
+	ctx context.Context,
+	user model.User,
 ) (model.User, error) {
 	if user.Role == "" {
 		user.Role = model.RoleUser
 	}
 
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO users (email, name, password, role, is_active)
+		`INSERT INTO users (name, email, password, role, is_active)
 		 VALUES ($1, $2, $3, $4, $5)
-		 RETURNING id, created_at`,
-		user.Email,
+		 RETURNING id, created_at, updated_at`,
 		user.Name,
+		user.Email,
 		user.Password,
 		user.Role,
 		user.IsActive,
-	).Scan(&user.ID, &user.CreatedAt)
+	).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
 
 	if err != nil {
 		if isUniqueViolation(err) {
