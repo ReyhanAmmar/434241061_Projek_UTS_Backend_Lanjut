@@ -8,14 +8,36 @@ import (
 	"syscall"
 	"time"
 
+	"api-buku-kas/app/repository"
+	"api-buku-kas/app/service"
 	"api-buku-kas/config"
 	"api-buku-kas/database"
+	"api-buku-kas/helper"
 	"api-buku-kas/route"
 )
+
+const minSecretLength = 32
 
 func main() {
 	config.LoadEnv()
 	logger := config.NewLogger()
+
+	jwtSecret := config.GetEnv("JWT_SECRET", "")
+	if len(jwtSecret) < minSecretLength {
+		logger.Error(
+			"JWT_SECRET tidak diisi atau terlalu pendek",
+			slog.Int("minimal_karakter", minSecretLength),
+		)
+		os.Exit(1)
+	}
+
+	accessMinutes := config.GetEnvInt("JWT_ACCESS_TTL_MINUTES", 15)
+	refreshDays := config.GetEnvInt("JWT_REFRESH_TTL_DAYS", 7)
+
+	if accessMinutes <= 0 || refreshDays <= 0 {
+		logger.Error("masa berlaku token harus lebih dari nol")
+		os.Exit(1)
+	}
 
 	pool, err := database.NewPool(context.Background())
 	if err != nil {
@@ -29,8 +51,26 @@ func main() {
 
 	logger.Info("database terhubung")
 
+	jwtManager := helper.NewJWTManager(
+		jwtSecret,
+		config.GetEnv("JWT_ISSUER", "api-buku-kas"),
+		time.Duration(accessMinutes)*time.Minute,
+	)
+
+	userRepository := repository.NewUserRepository(pool)
+	tokenRepository := repository.NewTokenRepository(pool)
+
+	authService := service.NewAuthService(
+		userRepository,
+		tokenRepository,
+		jwtManager,
+		time.Duration(refreshDays)*24*time.Hour,
+	)
+
 	app := config.NewApp(logger, route.Dependencies{
-		Pool: pool,
+		Pool:        pool,
+		JWT:         jwtManager,
+		AuthService: authService,
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")

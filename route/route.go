@@ -7,17 +7,37 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"api-buku-kas/app/service"
 	"api-buku-kas/helper"
+	"api-buku-kas/middleware"
 )
 
 type Dependencies struct {
-	Pool *pgxpool.Pool
+	Pool        *pgxpool.Pool
+	JWT         *helper.JWTManager
+	AuthService *service.AuthService
 }
 
 func Register(app *fiber.App, deps Dependencies) {
 	api := app.Group("/api/v1")
 
 	api.Get("/health", healthCheck(deps.Pool))
+
+	auth := api.Group("/auth", middleware.RequireJSON)
+
+	auth.Post("/register", deps.AuthService.Register)
+	auth.Post(
+		"/login",
+		middleware.LoginRateLimiter(),
+		deps.AuthService.Login,
+	)
+	auth.Post("/refresh", deps.AuthService.Refresh)
+	auth.Post("/logout", deps.AuthService.Logout)
+	auth.Get(
+		"/me",
+		middleware.RequireAuth(deps.JWT),
+		deps.AuthService.Me,
+	)
 }
 
 func healthCheck(pool *pgxpool.Pool) fiber.Handler {
