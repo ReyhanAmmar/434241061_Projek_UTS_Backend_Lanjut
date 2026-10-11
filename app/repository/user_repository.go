@@ -149,7 +149,13 @@ func (r *userPostgresRepository) Create(
 		user.Role = model.RoleUser
 	}
 
-	err := r.pool.QueryRow(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return model.User{}, fmt.Errorf("memulai pendaftaran user: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	err = tx.QueryRow(ctx,
 		`INSERT INTO users (name, email, password, role, is_active)
 		 VALUES ($1, $2, $3, $4, $5)
 		 RETURNING id, created_at, updated_at`,
@@ -169,6 +175,20 @@ func (r *userPostgresRepository) Create(
 			return model.User{}, ErrDuplicate
 		}
 		return model.User{}, fmt.Errorf("menyimpan user: %w", err)
+	}
+
+	_, err = tx.Exec(ctx,
+		`INSERT INTO categories (name, description, type, owner_id)
+		 SELECT name, description, type, $1
+		 FROM default_categories`,
+		user.ID,
+	)
+	if err != nil {
+		return model.User{}, fmt.Errorf("membuat kategori bawaan: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return model.User{}, fmt.Errorf("menyelesaikan pendaftaran user: %w", err)
 	}
 
 	return user, nil

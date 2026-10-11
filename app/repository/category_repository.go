@@ -18,6 +18,7 @@ type CategoryRepository interface {
 	FindAll(
 		ctx context.Context,
 		ownerID *int,
+		categoryType string,
 	) ([]model.Category, error)
 
 	FindByID(
@@ -38,6 +39,9 @@ type CategoryRepository interface {
 	Delete(ctx context.Context, id int) error
 }
 
+const categoryColumns = `id, name, description, type, owner_id,
+	created_at, updated_at`
+
 type categoryPostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -48,23 +52,41 @@ func NewCategoryRepository(
 	return &categoryPostgresRepository{pool: pool}
 }
 
+func scanCategory(row pgx.Row) (model.Category, error) {
+	var category model.Category
+
+	err := row.Scan(
+		&category.ID,
+		&category.Name,
+		&category.Description,
+		&category.Type,
+		&category.OwnerID,
+		&category.CreatedAt,
+		&category.UpdatedAt,
+	)
+
+	return category, err
+}
+
 func (r *categoryPostgresRepository) FindAll(
 	ctx context.Context,
 	ownerID *int,
+	categoryType string,
 ) ([]model.Category, error) {
-	sqlText := `
-		SELECT id, name, description, owner_id,
-		       created_at, updated_at
-		FROM categories`
-
+	sqlText := "SELECT " + categoryColumns + " FROM categories WHERE 1 = 1"
 	args := []any{}
 
 	if ownerID != nil {
-		sqlText += " WHERE owner_id = $1"
 		args = append(args, *ownerID)
+		sqlText += fmt.Sprintf(" AND owner_id = $%d", len(args))
 	}
 
-	sqlText += " ORDER BY id ASC"
+	if categoryType != "" {
+		args = append(args, categoryType)
+		sqlText += fmt.Sprintf(" AND type = $%d", len(args))
+	}
+
+	sqlText += " ORDER BY type ASC, LOWER(name) ASC, id ASC"
 
 	rows, err := r.pool.Query(ctx, sqlText, args...)
 	if err != nil {
@@ -75,16 +97,8 @@ func (r *categoryPostgresRepository) FindAll(
 	result := []model.Category{}
 
 	for rows.Next() {
-		var category model.Category
-
-		if err := rows.Scan(
-			&category.ID,
-			&category.Name,
-			&category.Description,
-			&category.OwnerID,
-			&category.CreatedAt,
-			&category.UpdatedAt,
-		); err != nil {
+		category, err := scanCategory(rows)
+		if err != nil {
 			return nil, fmt.Errorf("membaca baris kategori: %w", err)
 		}
 
@@ -102,22 +116,10 @@ func (r *categoryPostgresRepository) FindByID(
 	ctx context.Context,
 	id int,
 ) (model.Category, error) {
-	var category model.Category
-
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, name, description, owner_id,
-		        created_at, updated_at
-		 FROM categories
-		 WHERE id = $1`,
+	category, err := scanCategory(r.pool.QueryRow(ctx,
+		"SELECT "+categoryColumns+" FROM categories WHERE id = $1",
 		id,
-	).Scan(
-		&category.ID,
-		&category.Name,
-		&category.Description,
-		&category.OwnerID,
-		&category.CreatedAt,
-		&category.UpdatedAt,
-	)
+	))
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -136,18 +138,15 @@ func (r *categoryPostgresRepository) Create(
 	ctx context.Context,
 	category model.Category,
 ) (model.Category, error) {
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO categories (name, description, owner_id)
-		 VALUES ($1, $2, $3)
-		 RETURNING id, created_at, updated_at`,
+	created, err := scanCategory(r.pool.QueryRow(ctx,
+		`INSERT INTO categories (name, description, type, owner_id)
+		 VALUES ($1, $2, $3, $4)
+		 RETURNING `+categoryColumns,
 		category.Name,
 		category.Description,
+		category.Type,
 		category.OwnerID,
-	).Scan(
-		&category.ID,
-		&category.CreatedAt,
-		&category.UpdatedAt,
-	)
+	))
 
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -159,32 +158,24 @@ func (r *categoryPostgresRepository) Create(
 		)
 	}
 
-	return category, nil
+	return created, nil
 }
 
 func (r *categoryPostgresRepository) Update(
 	ctx context.Context,
 	category model.Category,
 ) (model.Category, error) {
-	err := r.pool.QueryRow(ctx,
+	updated, err := scanCategory(r.pool.QueryRow(ctx,
 		`UPDATE categories
 		 SET name = $1,
 		     description = $2,
 		     updated_at = NOW()
 		 WHERE id = $3
-		 RETURNING id, name, description, owner_id,
-		           created_at, updated_at`,
+		 RETURNING `+categoryColumns,
 		category.Name,
 		category.Description,
 		category.ID,
-	).Scan(
-		&category.ID,
-		&category.Name,
-		&category.Description,
-		&category.OwnerID,
-		&category.CreatedAt,
-		&category.UpdatedAt,
-	)
+	))
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -200,7 +191,7 @@ func (r *categoryPostgresRepository) Update(
 		)
 	}
 
-	return category, nil
+	return updated, nil
 }
 
 func (r *categoryPostgresRepository) Delete(

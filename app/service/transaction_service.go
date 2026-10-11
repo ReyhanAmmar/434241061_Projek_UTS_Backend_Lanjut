@@ -32,6 +32,7 @@ func NewTransactionService(
 	}
 }
 
+// GET /transactions
 func (s *TransactionService) List(c *fiber.Ctx) error {
 	current, ok := helper.CurrentUser(c)
 	if !ok {
@@ -43,6 +44,7 @@ func (s *TransactionService) List(c *fiber.Ctx) error {
 		return err
 	}
 
+	// Tanpa hak ":any", daftar dibatasi pada transaksi milik sendiri.
 	if !s.perms.Can(current.Role, "transaction:list:any") {
 		ownerID := current.UserID
 		q.OwnerID = &ownerID
@@ -69,6 +71,7 @@ func (s *TransactionService) List(c *fiber.Ctx) error {
 	)
 }
 
+// GET /transactions/:id
 func (s *TransactionService) Get(c *fiber.Ctx) error {
 	current, ok := helper.CurrentUser(c)
 	if !ok {
@@ -97,6 +100,7 @@ func (s *TransactionService) Get(c *fiber.Ctx) error {
 	return helper.Success(c, fiber.StatusOK, "transaksi ditemukan", item)
 }
 
+// POST /transactions
 func (s *TransactionService) Create(c *fiber.Ctx) error {
 	current, ok := helper.CurrentUser(c)
 	if !ok {
@@ -123,6 +127,7 @@ func (s *TransactionService) Create(c *fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
+	// Pemilik transaksi SELALU pengguna yang sedang login.
 	if err := s.ensureCategoryUsable(
 		ctx, req.CategoryID, current.UserID, req.Type,
 	); err != nil {
@@ -149,6 +154,7 @@ func (s *TransactionService) Create(c *fiber.Ctx) error {
 	)
 }
 
+// PUT /transactions/:id
 func (s *TransactionService) Replace(c *fiber.Ctx) error {
 	current, ok := helper.CurrentUser(c)
 	if !ok {
@@ -186,6 +192,8 @@ func (s *TransactionService) Replace(c *fiber.Ctx) error {
 		return helper.Validation(errs)
 	}
 
+	// Kategori harus milik pemilik TRANSAKSI, bukan milik pemanggil,
+	// agar admin tidak tanpa sengaja menautkan kategori orang lain.
 	if err := s.ensureCategoryUsable(
 		ctx, req.CategoryID, item.OwnerID, req.Type,
 	); err != nil {
@@ -208,6 +216,7 @@ func (s *TransactionService) Replace(c *fiber.Ctx) error {
 	)
 }
 
+// PATCH /transactions/:id
 func (s *TransactionService) Patch(c *fiber.Ctx) error {
 	current, ok := helper.CurrentUser(c)
 	if !ok {
@@ -254,6 +263,8 @@ func (s *TransactionService) Patch(c *fiber.Ctx) error {
 
 	updated := ApplyTransactionPatch(item, req)
 
+	// Bila jenis ATAU kategori berubah, pasangan hasil akhirnya harus
+	// tetap sah (kategori milik pemilik dan jenisnya sama).
 	if req.CategoryID != nil || req.Type != nil {
 		if err := s.ensureCategoryUsable(
 			ctx, updated.CategoryID, item.OwnerID, updated.Type,
@@ -272,6 +283,7 @@ func (s *TransactionService) Patch(c *fiber.Ctx) error {
 	)
 }
 
+// DELETE /transactions/:id
 func (s *TransactionService) Delete(c *fiber.Ctx) error {
 	current, ok := helper.CurrentUser(c)
 	if !ok {
@@ -304,6 +316,10 @@ func (s *TransactionService) Delete(c *fiber.Ctx) error {
 	return helper.NoContent(c)
 }
 
+// ensureCategoryUsable memastikan kategori ada, milik pemilik transaksi,
+// dan berjenis sama dengan transaksi. Kategori milik orang lain dijawab
+// sama persis dengan kategori yang tidak ada, supaya keberadaan id
+// kategori orang lain tidak bocor.
 func (s *TransactionService) ensureCategoryUsable(
 	ctx context.Context,
 	categoryID int,

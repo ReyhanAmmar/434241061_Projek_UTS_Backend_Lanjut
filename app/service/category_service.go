@@ -33,6 +33,14 @@ func (s *CategoryService) List(c *fiber.Ctx) error {
 		return helper.Unauthorized("belum terautentikasi")
 	}
 
+	// Filter jenis bersifat opsional: ?type=income atau ?type=expense.
+	categoryType := c.Query("type")
+	if categoryType != "" &&
+		categoryType != model.TransactionIncome &&
+		categoryType != model.TransactionExpense {
+		return helper.BadRequest("type harus income atau expense")
+	}
+
 	var ownerID *int
 
 	if !s.perms.Can(current.Role, "category:list:any") {
@@ -43,7 +51,7 @@ func (s *CategoryService) List(c *fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
-	categories, err := s.repo.FindAll(ctx, ownerID)
+	categories, err := s.repo.FindAll(ctx, ownerID, categoryType)
 	if err != nil {
 		return translateCategoryError(err)
 	}
@@ -116,6 +124,7 @@ func (s *CategoryService) Create(c *fiber.Ctx) error {
 	category, err := s.repo.Create(ctx, model.Category{
 		Name:        req.Name,
 		Description: req.Description,
+		Type:        req.Type,
 		OwnerID:     current.UserID,
 	})
 	if err != nil {
@@ -282,7 +291,7 @@ func translateCategoryError(err error) error {
 
 	case errors.Is(err, repository.ErrDuplicate):
 		return helper.Conflict(
-			"nama kategori sudah digunakan oleh pemilik yang sama",
+			"nama kategori sudah digunakan pada jenis yang sama",
 		)
 
 	case errors.Is(err, repository.ErrCategoryInUse):

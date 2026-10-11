@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE IF NOT EXISTS categories (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(100) NOT NULL,
@@ -38,5 +36,3 @@ INSERT INTO role_permissions (role_name, permission_name) VALUES
     ('user', 'category:create'),
     ('user', 'category:delete')
 ON CONFLICT DO NOTHING;
-
-COMMIT;
