@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"time"
 	"unicode/utf8"
 
 	"github.com/go-playground/validator/v10"
@@ -41,6 +42,19 @@ func newValidator() *validator.Validate {
 		"strongpassword",
 		func(fl validator.FieldLevel) bool {
 			return passwordStrength(fl.Field().String()) == ""
+		},
+	); err != nil {
+		panic(err)
+	}
+
+	if err := v.RegisterValidation(
+		"notfuture",
+		func(fl validator.FieldLevel) bool {
+			value, ok := fl.Field().Interface().(time.Time)
+			if !ok {
+				return false
+			}
+			return !value.After(time.Now().Add(time.Minute))
 		},
 	); err != nil {
 		panic(err)
@@ -116,6 +130,19 @@ func messageFor(fe validator.FieldError) string {
 			}
 		}
 		return "password tidak memenuhi syarat"
+
+	case "gt":
+		return "nilai harus lebih besar dari " + fe.Param()
+
+	case "lte":
+		return "nilai maksimal " + fe.Param()
+
+	case "oneof":
+		return "harus salah satu dari: " +
+			strings.ReplaceAll(fe.Param(), " ", ", ")
+
+	case "notfuture":
+		return "tanggal tidak boleh di masa depan"
 
 	default:
 		return "tidak memenuhi aturan " + fe.Tag()
