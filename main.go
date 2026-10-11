@@ -57,10 +57,11 @@ func main() {
 		time.Duration(accessMinutes)*time.Minute,
 	)
 
-		userRepository := repository.NewUserRepository(pool)
+	userRepository := repository.NewUserRepository(pool)
 	tokenRepository := repository.NewTokenRepository(pool)
 	roleRepository := repository.NewRoleRepository(pool)
 	categoryRepository := repository.NewCategoryRepository(pool)
+	transactionRepository := repository.NewTransactionRepository(pool)
 
 	permissionCtx, cancelPermissions := context.WithTimeout(
 		context.Background(), 5*time.Second,
@@ -107,6 +108,12 @@ func main() {
 		permissions,
 	)
 
+	transactionService := service.NewTransactionService(
+		transactionRepository,
+		categoryRepository,
+		permissions,
+	)
+
 	authService := service.NewAuthService(
 		userRepository,
 		tokenRepository,
@@ -116,12 +123,13 @@ func main() {
 	)
 
 	app := config.NewApp(logger, route.Dependencies{
-		Pool:        pool,
-		JWT:         jwtManager,
-		Permissions: permissions,
-		UserService: userService,
-		AuthService: authService,
-		CategoryService: categoryService,
+		Pool:               pool,
+		JWT:                jwtManager,
+		Permissions:        permissions,
+		UserService:        userService,
+		AuthService:        authService,
+		CategoryService:    categoryService,
+		TransactionService: transactionService,
 	})
 
 	port := config.GetEnv("APP_PORT", "3000")
