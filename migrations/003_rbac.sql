@@ -1,24 +1,24 @@
 CREATE TABLE IF NOT EXISTS roles (
-    name        VARCHAR(20) PRIMARY KEY,
+    name        VARCHAR(20)  PRIMARY KEY,
     description VARCHAR(150) NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     CONSTRAINT roles_name_check CHECK (name IN ('admin', 'user'))
 );
 
 INSERT INTO roles (name, description) VALUES
     ('admin', 'Akses penuh terhadap seluruh data dan pengaturan'),
-    ('user', 'Hanya boleh mengakses data miliknya sendiri')
+    ('user',  'Hanya boleh mengakses data miliknya sendiri')
 ON CONFLICT (name) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS permissions (
-    name        VARCHAR(50) PRIMARY KEY,
+    name        VARCHAR(50)  PRIMARY KEY,
     description VARCHAR(150) NOT NULL
 );
 
 INSERT INTO permissions (name, description) VALUES
-    ('user:list', 'Melihat daftar seluruh user'),
+    ('user:list',     'Melihat daftar seluruh user'),
     ('user:read:any', 'Melihat detail user mana pun'),
-    ('role:assign', 'Mengubah role user lain')
+    ('role:assign',   'Mengubah role user lain')
 ON CONFLICT (name) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS role_permissions (
@@ -32,9 +32,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 INSERT INTO role_permissions (role_name, permission_name) VALUES
     ('admin', 'user:list'),
     ('admin', 'user:read:any'),
-    ('admin', 'user:update:any'),
-    ('admin', 'user:delete'),
-    ('admin', 'role:assign'),
+    ('admin', 'role:assign')
 ON CONFLICT DO NOTHING;
 
 UPDATE users SET role = 'user' WHERE role NOT IN (SELECT name FROM roles);
@@ -47,5 +45,4 @@ ALTER TABLE users
     REFERENCES roles(name)
     ON UPDATE CASCADE;
 
-CREATE INDEX IF NOT EXISTS users_role_idx
-    ON users (role);
+CREATE INDEX IF NOT EXISTS users_role_idx ON users (role);
