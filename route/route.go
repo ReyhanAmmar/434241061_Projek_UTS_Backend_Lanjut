@@ -66,7 +66,7 @@ func Register(app *fiber.App, deps Dependencies) {
 
 	users.Get("/:id", deps.UserService.Get)
 
-		categories := api.Group(
+	categories := api.Group(
 		"/categories",
 		middleware.RequireAuth(deps.JWT),
 		middleware.RequireJSON,
@@ -100,11 +100,28 @@ func Register(app *fiber.App, deps Dependencies) {
 		middleware.RequireJSON,
 	)
 
-	// Hak yang dapat diputuskan tanpa melihat data -> middleware.
 	transactions.Get(
 		"/",
 		middleware.RequirePermission(perms, "transaction:list"),
 		deps.TransactionService.List,
+	)
+
+	transactions.Get(
+		"/feed",
+		middleware.RequirePermission(perms, "transaction:list"),
+		deps.TransactionService.Feed,
+	)
+
+	transactions.Get(
+		"/summary",
+		middleware.RequirePermission(perms, "transaction:list"),
+		deps.TransactionService.Summary,
+	)
+
+	transactions.Get(
+		"/export",
+		middleware.RequirePermission(perms, "transaction:list"),
+		deps.TransactionService.Export,
 	)
 
 	transactions.Post(
@@ -119,7 +136,6 @@ func Register(app *fiber.App, deps Dependencies) {
 		deps.TransactionService.Delete,
 	)
 
-	// Hak bergantung pada kepemilikan data -> diperiksa di service.
 	transactions.Get("/:id", deps.TransactionService.Get)
 	transactions.Put("/:id", deps.TransactionService.Replace)
 	transactions.Patch("/:id", deps.TransactionService.Patch)

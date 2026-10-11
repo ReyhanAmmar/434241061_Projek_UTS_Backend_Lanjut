@@ -1,3 +1,5 @@
+BEGIN;
+
 ALTER TABLE categories
     ADD COLUMN IF NOT EXISTS type VARCHAR(10) NOT NULL DEFAULT 'expense';
 
@@ -51,3 +53,5 @@ ALTER TABLE transactions
     FOREIGN KEY (category_id, type)
     REFERENCES categories (id, type)
     ON DELETE RESTRICT;
+
+COMMIT;

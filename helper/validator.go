@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"unicode"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/go-playground/validator/v10"

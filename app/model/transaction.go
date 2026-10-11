@@ -20,9 +20,9 @@ type Transaction struct {
 }
 
 type CreateTransactionRequest struct {
-	Type   string `json:"type"   validate:"required,oneof=income expense"`
-	Amount int64  `json:"amount" validate:"required,gt=0,lte=1000000000000"`
-	Note   string `json:"note"   validate:"max=255"`
+	Type            string     `json:"type"   validate:"required,oneof=income expense"`
+	Amount          int64      `json:"amount" validate:"required,gt=0,lte=1000000000000"`
+	Note            string     `json:"note"   validate:"max=255"`
 	TransactionDate *time.Time `json:"transaction_date" validate:"omitnil,notfuture"`
 	CategoryID      int        `json:"category_id"      validate:"required,gt=0"`
 }
@@ -44,11 +44,11 @@ type PatchTransactionRequest struct {
 }
 
 type TransactionQuery struct {
-	OwnerID    *int 
+	OwnerID    *int
 	Type       string
 	CategoryID *int
-	From       *time.Time 
-	To         *time.Time 
+	From       *time.Time
+	To         *time.Time
 	Search     string
 	Sort       string
 	Order      string

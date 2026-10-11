@@ -33,6 +33,18 @@ type TransactionRepository interface {
 	) (model.Transaction, error)
 
 	Delete(ctx context.Context, id int) error
+
+	FindAfterCursor(
+		ctx context.Context,
+		q model.TransactionQuery,
+		cursor *model.Cursor,
+		limit int,
+	) ([]model.Transaction, error)
+
+	Summarize(
+		ctx context.Context,
+		q model.TransactionQuery,
+	) (model.TransactionSummary, error)
 }
 
 const transactionColumns = `id, type, amount, note, transaction_date,
