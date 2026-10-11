@@ -19,6 +19,8 @@ type Dependencies struct {
 	UserService     *service.UserService
 	AuthService     *service.AuthService
 	CategoryService *service.CategoryService
+
+	TransactionService *service.TransactionService
 }
 
 func Register(app *fiber.App, deps Dependencies) {
@@ -91,6 +93,36 @@ func Register(app *fiber.App, deps Dependencies) {
 	categories.Get("/:id", deps.CategoryService.Get)
 	categories.Put("/:id", deps.CategoryService.Replace)
 	categories.Patch("/:id", deps.CategoryService.Patch)
+
+	transactions := api.Group(
+		"/transactions",
+		middleware.RequireAuth(deps.JWT),
+		middleware.RequireJSON,
+	)
+
+	// Hak yang dapat diputuskan tanpa melihat data -> middleware.
+	transactions.Get(
+		"/",
+		middleware.RequirePermission(perms, "transaction:list"),
+		deps.TransactionService.List,
+	)
+
+	transactions.Post(
+		"/",
+		middleware.RequirePermission(perms, "transaction:create"),
+		deps.TransactionService.Create,
+	)
+
+	transactions.Delete(
+		"/:id",
+		middleware.RequirePermission(perms, "transaction:delete"),
+		deps.TransactionService.Delete,
+	)
+
+	// Hak bergantung pada kepemilikan data -> diperiksa di service.
+	transactions.Get("/:id", deps.TransactionService.Get)
+	transactions.Put("/:id", deps.TransactionService.Replace)
+	transactions.Patch("/:id", deps.TransactionService.Patch)
 }
 
 func healthCheck(pool *pgxpool.Pool) fiber.Handler {
